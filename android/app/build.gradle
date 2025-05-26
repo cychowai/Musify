@@ -61,16 +61,16 @@ android {
 
     flavorDimensions "flavor"
 
-    productFlavors {
-        github {
-            dimension "flavor"
-            applicationIdSuffix ""
-        }
-        fdroid {
-            dimension "flavor"
-            applicationIdSuffix ".fdroid"
-        }
-    }
+    // productFlavors {
+    //     github {
+    //         dimension "flavor"
+    //         applicationIdSuffix ""
+    //     }
+    //     fdroid {
+    //         dimension "flavor"
+    //         applicationIdSuffix ".fdroid"
+    //     }
+    // }
 
     signingConfigs {
         release {
