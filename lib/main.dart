@@ -191,7 +191,7 @@ class _MusifyState extends State<Musify> {
           value: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             systemNavigationBarColor: Colors.transparent,
-            systemNavigationBarContrastEnforced: false,
+            systemNavigationBarContrastEnforced: true,
             statusBarBrightness:
                 brightness == Brightness.dark
                     ? Brightness.light
