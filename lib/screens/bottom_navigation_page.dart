@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
+import 'package:musify/services/logger_service.dart';
 import 'package:musify/services/settings_manager.dart';
 import 'package:musify/widgets/mini_player.dart';
 
@@ -37,79 +38,73 @@ class BottomNavigationPage extends StatefulWidget {
   State<BottomNavigationPage> createState() => _BottomNavigationPageState();
 }
 
+enum MenuItem { home, search, library, settings }
+
 class _BottomNavigationPageState extends State<BottomNavigationPage> {
-  List<NavigationDestination> _getNavigationDestinations(BuildContext context) {
-    return !offlineMode.value
-        ? [
-          NavigationDestination(
-            icon: const Icon(FluentIcons.home_24_regular),
-            selectedIcon: const Icon(FluentIcons.home_24_filled),
-            label: context.l10n?.home ?? 'Home',
+  ({List<NavigationDestination> destinations, int selectedIndex})
+  _getNavigationDestinations(
+    BuildContext context,
+    bool isOffline,
+    int currentBranchIndex,
+  ) {
+    final allDestinations = <NavigationDestination>[
+      NavigationDestination(
+        icon: const Icon(FluentIcons.home_24_regular),
+        selectedIcon: const Icon(FluentIcons.home_24_filled),
+        label: context.l10n?.home ?? 'Home',
+      ),
+      NavigationDestination(
+        icon: const Icon(FluentIcons.search_24_regular),
+        selectedIcon: const Icon(FluentIcons.search_24_filled),
+        label: context.l10n?.search ?? 'Search',
+      ),
+      NavigationDestination(
+        icon: const Icon(FluentIcons.book_24_regular),
+        selectedIcon: const Icon(FluentIcons.book_24_filled),
+        label: context.l10n?.library ?? 'Library',
+      ),
+      NavigationDestination(
+        icon: const Icon(FluentIcons.settings_24_regular),
+        selectedIcon: const Icon(FluentIcons.settings_24_filled),
+        label: context.l10n?.settings ?? 'Settings',
+      ),
+    ];
+
+    final menuLabels = allDestinations.map((d) => d.label).toList();
+    // Default selected index, since offline mode can only be changed in settings
+    final settingLabel = context.l10n?.settings ?? 'Settings';
+    // Only difference in labels for offline mode
+    final searchLabel = context.l10n?.search ?? 'Search';
+
+    final destinations = allDestinations;
+    late final int selectedIndex;
+    final currentDestination = allDestinations.firstWhere(
+      (d) => d.label == menuLabels[currentBranchIndex],
+      orElse:
+          () => allDestinations.firstWhere(
+            (d) => d.label == settingLabel,
+            orElse: () => allDestinations.first,
           ),
-          NavigationDestination(
-            icon: const Icon(FluentIcons.search_24_regular),
-            selectedIcon: const Icon(FluentIcons.search_24_filled),
-            label: context.l10n?.search ?? 'Search',
+    );
+    if (isOffline) {
+      destinations.removeWhere((d) => d.label == searchLabel);
+      if (currentDestination.label == searchLabel) {
+        // If the current destination is search, fallback to home
+        selectedIndex = destinations.indexOf(
+          allDestinations.firstWhere(
+            (d) => d.label == settingLabel,
+            orElse: () => allDestinations.first,
           ),
-          NavigationDestination(
-            icon: const Icon(FluentIcons.book_24_regular),
-            selectedIcon: const Icon(FluentIcons.book_24_filled),
-            label: context.l10n?.library ?? 'Library',
-          ),
-          NavigationDestination(
-            icon: const Icon(FluentIcons.settings_24_regular),
-            selectedIcon: const Icon(FluentIcons.settings_24_filled),
-            label: context.l10n?.settings ?? 'Settings',
-          ),
-        ]
-        : [
-          NavigationDestination(
-            icon: const Icon(FluentIcons.home_24_regular),
-            selectedIcon: const Icon(FluentIcons.home_24_filled),
-            label: context.l10n?.home ?? 'Home',
-          ),
-          NavigationDestination(
-            icon: const Icon(FluentIcons.book_24_regular),
-            selectedIcon: const Icon(FluentIcons.book_24_filled),
-            label: context.l10n?.library ?? 'Library',
-          ),
-          NavigationDestination(
-            icon: const Icon(FluentIcons.settings_24_regular),
-            selectedIcon: const Icon(FluentIcons.settings_24_filled),
-            label: context.l10n?.settings ?? 'Settings',
-          ),
-        ];
+        );
+      } else {
+        selectedIndex = destinations.indexOf(currentDestination);
+      }
+    }
+    return (destinations: destinations, selectedIndex: selectedIndex);
   }
 
   bool _isLargeScreen(BuildContext context) {
     return MediaQuery.of(context).size.width >= 600;
-  }
-
-  // Maps the visible destination index to the correct branch index in the navigation shell
-  // TODO: This mapping is hardcoded for the current navigation structure. Refactor if navigation destinations change.
-  int _visibleToBranchIndex(int visibleIndex, bool isOffline) {
-    if (!isOffline) {
-      return visibleIndex;
-    } else {
-      if (visibleIndex == 0) return 0; // Home
-      if (visibleIndex == 1) return 2; // Library
-      if (visibleIndex == 2) return 3; // Settings
-      throw Exception('Invalid visible index for offline mode');
-    }
-  }
-
-  // Maps the navigation shell's branch index to the visible destination index
-  // TODO: This mapping is hardcoded for the current navigation structure. Refactor if navigation destinations change.
-  int _branchToVisibleIndex(int branchIndex, bool isOffline) {
-    if (!isOffline) {
-      return branchIndex;
-    } else {
-      if (branchIndex == 0) return 0; // Home
-      if (branchIndex == 2) return 1; // Library
-      if (branchIndex == 3) return 2; // Settings
-      // If branchIndex is 1 (Search), not visible in offline mode
-      return 0; // Default to Home if invalid
-    }
   }
 
   @override
@@ -117,9 +112,13 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: offlineMode,
       builder: (context, isOffline, _) {
-        final destinations = _getNavigationDestinations(context);
-        final selectedIndex = _branchToVisibleIndex(widget.child.currentIndex, isOffline);
-
+        final navData = _getNavigationDestinations(
+          context,
+          isOffline,
+          widget.child.currentIndex,
+        );
+        final destinations = navData.destinations;
+        final selectedVisibleIndex = navData.selectedIndex;
         return LayoutBuilder(
           builder: (context, constraints) {
             final isLargeScreen = _isLargeScreen(context);
@@ -139,12 +138,11 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
                                 ),
                               )
                               .toList(),
-                      selectedIndex: selectedIndex,
+                      selectedIndex: selectedVisibleIndex,
                       onDestinationSelected: (index) {
-                        final branchIndex = _visibleToBranchIndex(index, isOffline);
                         widget.child.goBranch(
-                          branchIndex,
-                          initialLocation: branchIndex != widget.child.currentIndex,
+                          index,
+                          initialLocation: index != widget.child.currentIndex,
                         );
                         setState(() {});
                       },
@@ -177,17 +175,16 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
               bottomNavigationBar:
                   !isLargeScreen
                       ? NavigationBar(
-                        selectedIndex: selectedIndex,
+                        selectedIndex: selectedVisibleIndex,
                         labelBehavior:
                             languageSetting == const Locale('en', '')
                                 ? NavigationDestinationLabelBehavior
                                     .onlyShowSelected
                                 : NavigationDestinationLabelBehavior.alwaysHide,
                         onDestinationSelected: (index) {
-                          final branchIndex = _visibleToBranchIndex(index, isOffline);
                           widget.child.goBranch(
-                            branchIndex,
-                            initialLocation: branchIndex != widget.child.currentIndex,
+                            index,
+                            initialLocation: index != widget.child.currentIndex,
                           );
                           setState(() {});
                         },
