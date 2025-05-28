@@ -77,7 +77,7 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
     // selectedIndex is the index in visibleIndexes that matches the current branch index
     var selectedIndex = visibleIndexes.indexOf(currentBranchIndex);
     // If not found (e.g. current branch is search but offline), fallback to first
-    if (selectedIndex == -1) selectedIndex = 0;
+    if (selectedIndex == -1) selectedIndex = 0; // maybe last will better?
     return (
       destinations: destinations,
       selectedIndex: selectedIndex,
@@ -85,12 +85,12 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
     );
   }
 
-  void _onDestinationSelected(int visibleIndex, List<int> visibleIndexes) {
-    final branchIndex = visibleIndexes[visibleIndex];
+  void _onDestinationSelected(int index) {
     widget.child.goBranch(
-      branchIndex,
-      initialLocation: branchIndex != widget.child.currentIndex,
+      index,
+      initialLocation: index == widget.child.currentIndex,
     );
+    // setState(() => _selectedIndex.value = index);
   }
 
   bool _isLargeScreen(BuildContext context) {
@@ -102,18 +102,27 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: offlineMode,
       builder: (context, isOffline, _) {
-        final navigationData = _getNavigationDestinations(
+        // Always get navigation info on every build and offlineMode change
+        final navigation = _getNavigationDestinations(
           context,
           isOffline,
           widget.child.currentIndex,
         );
-        final destinations = navigationData.destinations;
-        final visibleIndexes = navigationData.visibleIndexes;
-        final selectedVisibleIndex = navigationData.selectedIndex;
-
+        // If the selected index is not in the new visibleIndexes, map to settings if possible, else fallback to first
+        // if (_selectedIndex.value != navigation.selectedIndex) {
+        //   // Try to map to settings tab if available
+        //   // final settingsBranchIndex = navigation.visibleIndexes.last;
+        //   WidgetsBinding.instance.addPostFrameCallback((_) {
+        //     _selectedIndex.value = navigation.selectedIndex;
+        //   });
+        // }
+        debugPrint(
+          'Current branch index: ${widget.child.currentIndex}, '
+          'Visible indexes: ${navigation.visibleIndexes}',
+        );
+        final isLargeScreen = _isLargeScreen(context);
         return LayoutBuilder(
           builder: (context, constraints) {
-            final isLargeScreen = _isLargeScreen(context);
             return Scaffold(
               body: Row(
                 children: [
@@ -121,7 +130,7 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
                     NavigationRail(
                       labelType: NavigationRailLabelType.selected,
                       destinations:
-                          destinations
+                          navigation.destinations
                               .map(
                                 (destination) => NavigationRailDestination(
                                   icon: destination.icon,
@@ -130,10 +139,8 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
                                 ),
                               )
                               .toList(),
-                      selectedIndex: selectedVisibleIndex,
-                      onDestinationSelected:
-                          (index) =>
-                              _onDestinationSelected(index, visibleIndexes),
+                      selectedIndex: navigation.selectedIndex,
+                      onDestinationSelected: _onDestinationSelected,
                     ),
                   Expanded(
                     child: Column(
@@ -163,16 +170,14 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
               bottomNavigationBar:
                   !isLargeScreen
                       ? NavigationBar(
-                        selectedIndex: selectedVisibleIndex,
+                        selectedIndex: navigation.selectedIndex,
                         labelBehavior:
                             languageSetting == const Locale('en', '')
                                 ? NavigationDestinationLabelBehavior
                                     .onlyShowSelected
                                 : NavigationDestinationLabelBehavior.alwaysHide,
-                        onDestinationSelected:
-                            (index) =>
-                                _onDestinationSelected(index, visibleIndexes),
-                        destinations: destinations,
+                        onDestinationSelected: _onDestinationSelected,
+                        destinations: navigation.destinations,
                       )
                       : null,
             );
