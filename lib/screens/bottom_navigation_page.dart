@@ -108,14 +108,6 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
           isOffline,
           widget.child.currentIndex,
         );
-        // If the selected index is not in the new visibleIndexes, map to settings if possible, else fallback to first
-        // if (_selectedIndex.value != navigation.selectedIndex) {
-        //   // Try to map to settings tab if available
-        //   // final settingsBranchIndex = navigation.visibleIndexes.last;
-        //   WidgetsBinding.instance.addPostFrameCallback((_) {
-        //     _selectedIndex.value = navigation.selectedIndex;
-        //   });
-        // }
         debugPrint(
           'Current branch index: ${widget.child.currentIndex}, '
           'Visible indexes: ${navigation.visibleIndexes}',
